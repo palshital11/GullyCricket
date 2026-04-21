@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gully Cricket Scorer - Match Center</title>
+    <title>Gully Cricket Scorer - Pro Stats</title>
     <style>
         :root { --primary: #2c3e50; --secondary: #27ae60; --accent: #e67e22; --danger: #c0392b; --light: #f8f9fa; }
         body { font-family: 'Segoe UI', sans-serif; background: #e9ecef; padding: 10px; margin: 0; }
@@ -17,38 +17,52 @@
         .p-box { flex: 1; padding: 15px; border-radius: 8px; border: 2px solid #dee2e6; transition: 0.3s; }
         .active-striker { border-color: var(--secondary); background: #f0fff4; box-shadow: 0 0 10px rgba(39, 174, 96, 0.1); }
         .grid-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-        .section-label { grid-column: span 4; font-weight: bold; color: #6c757d; margin-top: 15px; font-size: 0.75rem; text-transform: uppercase; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+        .section-label { grid-column: span 4; font-weight: bold; color: #6c757d; margin-top: 15px; font-size: 0.75rem; text-transform: uppercase; border-bottom: 1px solid #eee; padding-bottom: 4px; text-align: left; }
         button { border: none; padding: 12px 2px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: 0.2s; }
         button:hover { opacity: 0.9; }
         button:disabled { background: #e9ecef !important; color: #adb5bd !important; cursor: not-allowed; opacity: 1; }
         .btn-p { background: #e2e6ea; } 
         .btn-nb { background: #e8daef; color: #4a235a; }
         .btn-w { background: #f8d7da; color: #721c24; }
-        .btn-action { background: var(--primary); color: white; grid-column: span 4; padding: 15px; margin-top: 10px; }
+        .btn-action { background: var(--primary); color: white; grid-column: span 4; padding: 15px; margin-top: 10px; width: 100%;}
         #scorecard-view, #final-stats-view { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 100; overflow-y: auto; padding: 20px; display: none; box-sizing: border-box; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 20px;}
         th, td { border-bottom: 1px solid #ddd; padding: 10px; text-align: left; }
         th { background: #f4f4f4; }
         .hidden { display: none; }
-        input, select { padding: 12px; margin: 10px 0; width: 100%; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        input, select { padding: 12px; margin: 10px 0; width: 100%; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-family: inherit; }
+        .toss-card { background: #fdf2e9; border: 1px solid #fad7a0; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+        .stats-highlight { background: #fff4e6; padding: 15px; border-radius: 10px; margin: 10px 0; border: 1px solid #ffd8a8; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        
+        @media print {
+            .btn-action, button, .no-print { display: none !important; }
+            #final-stats-view { position: relative; display: block !important; }
+        }
     </style>
 </head>
 <body>
 
-<div class="container">
+<div class="container no-print">
     <div id="setup-screen">
         <h2 id="setup-title" style="text-align:center">Gully Cricket Pro</h2>
+        
         <div id="team-names-input">
-            <input type="text" id="teamA" placeholder="Batting Team Name">
-            <input type="text" id="teamB" placeholder="Bowling Team Name">
+            <input type="text" id="team1Name" placeholder="Team 1 Name" oninput="updateTossOptions()">
+            <input type="text" id="team2Name" placeholder="Team 2 Name" oninput="updateTossOptions()">
             <input type="number" id="totalOvers" placeholder="Total Match Overs (e.g. 5)">
+            
+            <div class="toss-card">
+                <label style="font-weight:bold; font-size:0.9rem">Toss Won By:</label>
+                <select id="tossWinner"><option value="">Select Team</option></select>
+                <label style="font-weight:bold; font-size:0.9rem">Decision:</label>
+                <select id="tossDecision"><option value="bat">Batting First</option><option value="bowl">Bowling First</option></select>
+            </div>
         </div>
-        <div style="display:flex; gap:10px">
-            <input type="text" id="p1" placeholder="Striker">
-            <input type="text" id="p2" placeholder="Non-Striker">
-        </div>
+
+        <div style="display:flex; gap:10px"><input type="text" id="p1" placeholder="Striker"><input type="text" id="p2" placeholder="Non-Striker"></div>
         <input type="text" id="b1" placeholder="Opening Bowler">
-        <button id="start-btn" onclick="initGame()" class="btn-action" style="background:var(--secondary)">START 1st INNINGS</button>
+        <button id="start-btn" onclick="initGame()" class="btn-action" style="background:var(--secondary)">START MATCH</button>
     </div>
 
     <div id="game-screen" class="hidden">
@@ -58,23 +72,14 @@
             <div id="overs-count">Overs: 0.0 / 0</div>
             <div id="target-display" class="target-ribbon hidden">TARGET: 0</div>
         </div>
-
         <div class="over-ticker" id="ticker"></div>
-
         <div id="bowler-display" style="font-weight:bold; margin-bottom:10px; color:var(--primary)">
-            Bowler: <span id="curr-bowler-name">-</span> 
-            (<span id="curr-bowler-stats">0-0-0.0</span>)
+            Bowler: <span id="curr-bowler-name">-</span> (<span id="curr-bowler-stats">W:0 R:0 O:0.0</span>)
         </div>
 
         <div class="player-section">
-            <div id="striker-card" class="p-box active-striker">
-                <div id="s-name" style="font-weight:bold">P1</div>
-                <div id="s-runs">0 (0)</div>
-            </div>
-            <div id="non-striker-card" class="p-box">
-                <div id="ns-name" style="font-weight:bold">P2</div>
-                <div id="ns-runs">0 (0)</div>
-            </div>
+            <div id="striker-card" class="p-box active-striker"><div id="s-name" style="font-weight:bold">P1</div><div id="s-runs">0 (0)</div></div>
+            <div id="non-striker-card" class="p-box"><div id="ns-name" style="font-weight:bold">P2</div><div id="ns-runs">0 (0)</div></div>
         </div>
 
         <div class="grid-container" id="control-grid">
@@ -112,7 +117,7 @@
     </div>
 </div>
 
-<div id="scorecard-view">
+<div id="scorecard-view" class="no-print">
     <h2 id="card-title">Innings Scorecard</h2>
     <div id="target-summary" style="font-weight: bold; color: var(--accent); margin-bottom: 10px;"></div>
     <div id="scorecard-content"></div>
@@ -122,289 +127,210 @@
 </div>
 
 <div id="final-stats-view">
+    <div class="no-print" style="display:flex; gap:10px; margin-bottom:20px;">
+        <button onclick="window.print()" class="btn-action" style="background:var(--secondary); margin:0">SAVE AS PDF / PRINT</button>
+        <button onclick="location.reload()" class="btn-action" style="background:var(--danger); margin:0">NEW MATCH</button>
+    </div>
     <h1 id="match-winner" style="text-align:center; color:var(--secondary)"></h1>
+    <div id="mvp-section" class="stats-highlight">
+        <h3 style="margin-top:0; color:var(--accent)">🏆 Match Awards</h3>
+        <div id="awards-content" class="stats-grid"></div>
+    </div>
     <div id="final-content"></div>
-    <button onclick="location.reload()" class="btn-action">NEW MATCH</button>
 </div>
 
 <script>
     let history = [];
     let state = {
-        inning: 1, score: 0, wickets: 0, balls: 0, extras: 0,
-        maxOvers: 0, overHistory: [],
-        batters: {}, bowlers: {}, 
-        strikerName: "", nonStrikerName: "", currBowlerName: "",
-        isLastMan: false, firstInningScore: 0,
-        teamA: "", teamB: "",
-        innings1Data: null,
-        lastOverAlerted: -1 // Tracks which over transition was last handled
+        inning: 1, score: 0, wickets: 0, balls: 0, extras: 0, maxOvers: 0, overHistory: [],
+        batters: {}, bowlers: {}, strikerName: "", nonStrikerName: "", currBowlerName: "",
+        isLastMan: false, firstInningScore: 0, teamA: "", teamB: "", team1Name: "", team2Name: "",
+        innings1Data: null, lastOverAlerted: -1
     };
+
+    function updateTossOptions() {
+        const t1 = document.getElementById('team1Name').value || "Team 1";
+        const t2 = document.getElementById('team2Name').value || "Team 2";
+        const select = document.getElementById('tossWinner');
+        const currentVal = select.value;
+        select.innerHTML = `<option value="">Select Team</option><option value="${t1}">${t1}</option><option value="${t2}">${t2}</option>`;
+        select.value = currentVal;
+    }
 
     function initGame() {
         if(state.inning === 1) {
-            state.teamA = document.getElementById('teamA').value || "Team 1";
-            state.teamB = document.getElementById('teamB').value || "Team 2";
+            state.team1Name = document.getElementById('team1Name').value || "Team 1";
+            state.team2Name = document.getElementById('team2Name').value || "Team 2";
             state.maxOvers = parseInt(document.getElementById('totalOvers').value) || 5;
+            const tossWinner = document.getElementById('tossWinner').value || state.team1Name;
+            const tossDecision = document.getElementById('tossDecision').value;
+            const tossLoser = (tossWinner === state.team1Name) ? state.team2Name : state.team1Name;
+            if(tossDecision === 'bat') { state.teamA = tossWinner; state.teamB = tossLoser; } 
+            else { state.teamA = tossLoser; state.teamB = tossWinner; }
         }
-        
         const p1 = document.getElementById('p1').value || "P1";
         const p2 = document.getElementById('p2').value || "P2";
         const b1 = document.getElementById('b1').value || "B1";
-        
         state.strikerName = p1; state.nonStrikerName = p2; state.currBowlerName = b1;
-        state.batters[p1] = {r:0, b:0, f4:0, f6:0, out:false};
-        state.batters[p2] = {r:0, b:0, f4:0, f6:0, out:false};
-        state.bowlers[b1] = {r:0, w:0, b:0};
-        state.lastOverAlerted = 0; // The 0th over (start) is handled
-
+        if(!state.batters[p1]) state.batters[p1] = {r:0, b:0, f4:0, f6:0, out:false};
+        if(!state.batters[p2]) state.batters[p2] = {r:0, b:0, f4:0, f6:0, out:false};
+        if(!state.bowlers[b1]) state.bowlers[b1] = {r:0, w:0, b:0};
+        state.lastOverAlerted = 0;
         document.getElementById('match-header').innerText = `${state.inning === 1 ? state.teamA : state.teamB} Innings`;
         document.getElementById('setup-screen').classList.add('hidden');
         document.getElementById('game-screen').classList.remove('hidden');
-        toggleControls(false);
-        updateUI();
+        toggleControls(false); updateUI();
     }
 
     function toggleControls(disable) {
-        const btns = document.querySelectorAll('#control-grid button:not(.btn-action)');
-        btns.forEach(b => b.disabled = disable);
+        document.querySelectorAll('#control-grid button:not(.btn-action)').forEach(b => b.disabled = disable);
     }
-
-    function save() { history.push(JSON.parse(JSON.stringify(state))); }
 
     function updateUI() {
         document.getElementById('main-score').innerText = `${state.score} - ${state.wickets}`;
         document.getElementById('overs-count').innerText = `Overs: ${Math.floor(state.balls/6)}.${state.balls%6} / ${state.maxOvers}`;
         document.getElementById('s-name').innerText = state.strikerName;
         document.getElementById('s-runs').innerText = `${state.batters[state.strikerName].r} (${state.batters[state.strikerName].b})`;
-        
         if(!state.isLastMan) {
             document.getElementById('ns-name').innerText = state.nonStrikerName;
             document.getElementById('ns-runs').innerText = `${state.batters[state.nonStrikerName].r} (${state.batters[state.nonStrikerName].b})`;
-        } else {
-            document.getElementById('ns-name').innerText = "ALL OUT";
-            document.getElementById('ns-runs').innerText = "-";
-        }
-
+        } else { document.getElementById('ns-name').innerText = "ALL OUT"; document.getElementById('ns-runs').innerText = "-"; }
         const b = state.bowlers[state.currBowlerName];
         document.getElementById('curr-bowler-name').innerText = state.currBowlerName;
         document.getElementById('curr-bowler-stats').innerText = `W:${b.w} R:${b.r} O:${Math.floor(b.b/6)}.${b.b%6}`;
-        
-        const ticker = document.getElementById('ticker');
-        ticker.innerHTML = state.overHistory.map(b => `<div class="ball-circle">${b}</div>`).join('');
-
-        const isLimitReached = (state.balls >= state.maxOvers * 6) || (state.inning === 2 && state.score > state.firstInningScore);
-        if (isLimitReached) {
-            document.getElementById('end-innings-btn').classList.remove('hidden');
-        } else {
-            document.getElementById('end-innings-btn').classList.add('hidden');
-        }
-    }
-
-    function rotateStrike() {
-        if(state.isLastMan) return;
-        let temp = state.strikerName;
-        state.strikerName = state.nonStrikerName;
-        state.nonStrikerName = temp;
+        document.getElementById('ticker').innerHTML = state.overHistory.map(b => `<div class="ball-circle">${b}</div>`).join('');
+        const isLimit = (state.balls >= state.maxOvers * 6) || (state.inning === 2 && state.score > state.firstInningScore);
+        document.getElementById('end-innings-btn').classList.toggle('hidden', !isLimit);
+        if(isLimit) toggleControls(true);
     }
 
     function addBall(runs, isPlayed, label, isBoundary = false) {
-        save();
-        state.score += runs;
-        state.batters[state.strikerName].r += runs;
-        state.batters[state.strikerName].b++;
-        state.bowlers[state.currBowlerName].r += runs;
-        state.bowlers[state.currBowlerName].b++;
-        state.balls++;
-        state.overHistory.push(label);
-        
+        save(); state.score += runs; state.batters[state.strikerName].r += runs; state.batters[state.strikerName].b++;
+        state.bowlers[state.currBowlerName].r += runs; state.bowlers[state.currBowlerName].b++;
+        state.balls++; state.overHistory.push(label);
         if(runs === 4 && isBoundary) state.batters[state.strikerName].f4++;
         if(runs === 6 && isBoundary) state.batters[state.strikerName].f6++;
-
         if (isPlayed && runs % 2 !== 0) rotateStrike();
         checkGameState();
     }
 
     function addExtra(type, total, rotate, label) {
-        save();
-        state.score += total;
-        state.extras += total;
-        state.bowlers[state.currBowlerName].r += total;
+        save(); state.score += total; state.extras += total; state.bowlers[state.currBowlerName].r += total;
         state.overHistory.push(label);
-        
         if (type === 'nb') {
-            const bRuns = total - 1;
-            state.batters[state.strikerName].r += bRuns;
+            const bRuns = total - 1; state.batters[state.strikerName].r += bRuns;
             if (rotate && bRuns % 2 !== 0) rotateStrike();
         }
         checkGameState();
     }
 
     function checkGameState() {
-        const currentOverNumber = Math.floor(state.balls / 6);
-        const totalPossibleBalls = state.maxOvers * 6;
-        const isMatchFinished = (state.inning === 2 && state.score > state.firstInningScore);
-        const isInningsFinished = (state.balls >= totalPossibleBalls);
-
-        if (isMatchFinished || isInningsFinished) {
-            alert("Innings Complete!");
-            toggleControls(true);
-        } 
-        // Logic: Trigger ONLY if ball count is 6/12/18 AND we haven't already handled this over number.
-        else if (state.balls > 0 && state.balls % 6 === 0 && state.lastOverAlerted < currentOverNumber) {
-            alert("Over Over!");
-            state.overHistory = [];
+        const curO = Math.floor(state.balls / 6);
+        const limit = (state.inning === 2 && state.score > state.firstInningScore) || (state.balls >= state.maxOvers * 6);
+        if (limit) { updateUI(); alert("Innings Complete!"); } 
+        else if (state.balls > 0 && state.balls % 6 === 0 && state.lastOverAlerted < curO) {
             rotateStrike();
-            
-            const existing = Object.keys(state.bowlers).join(', ');
-            let nextB = prompt(`New Bowler Name?\nExisting: ${existing}`, "");
-            
+            const prevBowlers = Object.keys(state.bowlers).join(', ');
+            let nextB = prompt(`New Bowler Name?\nPreviously bowled: ${prevBowlers}`, "");
             if (!nextB) nextB = state.currBowlerName; 
-            if(!state.bowlers[nextB]) {
-                state.bowlers[nextB] = {r:0, w:0, b:0};
-            }
-            state.currBowlerName = nextB;
-            
-            // Mark this over as "handled" so extras don't re-trigger the alert
-            state.lastOverAlerted = currentOverNumber;
+            if(!state.bowlers[nextB]) state.bowlers[nextB] = {r:0, w:0, b:0};
+            state.currBowlerName = nextB; state.lastOverAlerted = curO; state.overHistory = [];
         }
         updateUI();
     }
 
     function handleWicket(label) {
-        save();
-        if(state.isLastMan) { state.wickets++; checkGameState(); return; }
-        
-        state.wickets++;
-        state.batters[state.strikerName].b++;
-        state.batters[state.strikerName].out = true;
-        state.bowlers[state.currBowlerName].w++;
-        state.bowlers[state.currBowlerName].b++;
-        state.balls++;
-        state.overHistory.push(label);
-
+        save(); state.wickets++; state.batters[state.strikerName].b++; state.batters[state.strikerName].out = true;
+        state.bowlers[state.currBowlerName].w++; state.bowlers[state.currBowlerName].b++;
+        state.balls++; state.overHistory.push(label);
         if (confirm("More batters?")) {
-            let newB = prompt("New Batter Name:");
-            state.strikerName = newB;
-            state.batters[newB] = {r:0, b:0, f4:0, f6:0, out:false};
-        } else {
-            state.isLastMan = true;
-            state.strikerName = state.nonStrikerName;
-        }
+            let n = prompt("New Batter Name:");
+            state.strikerName = n || "Next Batter";
+            state.batters[state.strikerName] = {r:0, b:0, f4:0, f6:0, out:false};
+        } else { state.isLastMan = true; state.strikerName = state.nonStrikerName; }
         checkGameState();
     }
 
     function handleRunOut() {
-        save();
-        let ran = parseInt(prompt("Runs completed?", "0")) || 0;
-        let sOut = confirm("Is Striker out? (OK=Yes)");
-        state.score += ran; state.wickets++; state.balls++;
-        state.bowlers[state.currBowlerName].r += ran;
-        state.bowlers[state.currBowlerName].b++;
+        save(); let ran = parseInt(prompt("Runs completed?", "0")) || 0; let sOut = confirm("Is Striker out?");
+        state.score += ran; state.wickets++; state.balls++; state.bowlers[state.currBowlerName].r += ran; state.bowlers[state.currBowlerName].b++;
         state.overHistory.push('WR');
-
-        if(state.isLastMan) { checkGameState(); return; }
-
-        let more = confirm("More players?");
         if(sOut) {
             state.batters[state.strikerName].out = true;
-            if(more) {
-                let n = prompt("New Batter:");
-                state.strikerName = n;
-                state.batters[n] = {r:0, b:0, f4:0, f6:0, out:false};
-            } else { state.isLastMan = true; state.strikerName = state.nonStrikerName; }
+            let n = prompt("New Batter:"); state.strikerName = n || "Next Batter";
+            state.batters[state.strikerName] = {r:0, b:0, f4:0, f6:0, out:false};
         } else {
             state.batters[state.nonStrikerName].out = true;
-            if(more) {
-                let n = prompt("New Batter:");
-                state.nonStrikerName = n;
-                state.batters[n] = {r:0, b:0, f4:0, f6:0, out:false};
-            } else { state.isLastMan = true; }
+            let n = prompt("New Batter:"); state.nonStrikerName = n || "Next Batter";
+            state.batters[n] = {r:0, b:0, f4:0, f6:0, out:false};
         }
-        if(ran % 2 !== 0) rotateStrike();
-        checkGameState();
+        if(ran % 2 !== 0) rotateStrike(); checkGameState();
     }
 
-    function generateScorecardHTML(batters, bowlers, extras, title) {
-        let html = `<h3>${title} - Batting</h3><table><thead><tr><th>Batter</th><th>R</th><th>B</th><th>4s/6s</th></tr></thead><tbody>`;
-        html += Object.entries(batters).map(([name, d]) => `<tr><td>${name} ${d.out?'':'*'}</td><td>${d.r}</td><td>${d.b}</td><td>${d.f4}/${d.f6}</td></tr>`).join('');
-        html += `</tbody></table><h3>Bowling</h3><table><thead><tr><th>Bowler</th><th>O</th><th>R</th><th>W</th></tr></thead><tbody>`;
-        html += Object.entries(bowlers).map(([name, d]) => `<tr><td>${name}</td><td>${Math.floor(d.b/6)}.${d.b%6}</td><td>${d.r}</td><td>${d.w}</td></tr>`).join('');
-        html += `</tbody></table><div style="font-weight:bold">Total Extras: ${extras}</div>`;
-        return html;
+    function calculateSpecialStats() {
+        let allBat = {...state.batters, ...state.innings1Data?.batters};
+        let allBowl = {...state.bowlers, ...state.innings1Data?.bowlers};
+        let m4={n:'-',v:0}, m6={n:'-',v:0}, hSR={n:'-',v:0}, bE={n:'-',v:100}, pom={n:'-',s:0};
+        Object.entries(allBat).forEach(([n, d]) => {
+            if(d.f4 > m4.v) m4 = {n, v: d.f4}; if(d.f6 > m6.v) m6 = {n, v: d.f6};
+            let sr = d.b >= 5 ? (d.r / d.b) * 100 : 0;
+            if(sr > hSR.v) hSR = {n, v: sr.toFixed(1)};
+            let s = d.r + (d.f4 * 2) + (d.f6 * 3); if(s > pom.s) pom = {n, s};
+        });
+        Object.entries(allBowl).forEach(([n, d]) => {
+            let ov = d.b / 6; let e = ov > 0 ? d.r / ov : 100;
+            if(ov >= 0.5 && e < bE.v) bE = {n, v: e.toFixed(2)};
+            let s = (d.w * 25); if(s > pom.s) pom = {n, s};
+        });
+        return `<div><strong>Most 4s:</strong> ${m4.n} (${m4.v})</div><div><strong>Most 6s:</strong> ${m6.n} (${m6.v})</div><div><strong>Highest SR (5+b):</strong> ${hSR.n} (${hSR.v})</div><div><strong>Best Economy:</strong> ${bE.n} (${bE.v})</div><div style="grid-column: span 2; font-size: 1.2rem; margin-top:10px; color:var(--secondary)"><strong>PLAYER OF THE MATCH:</strong> ${pom.n}</div>`;
+    }
+
+    function showFinalStats() {
+        const win = state.score > state.firstInningScore ? state.teamB : (state.score === state.firstInningScore ? "Match Tied" : state.teamA);
+        document.getElementById('match-winner').innerText = win === "Match Tied" ? win : win + " WON!";
+        document.getElementById('awards-content').innerHTML = calculateSpecialStats();
+        let h = `<h2>1st Innings: ${state.teamA} (${state.innings1Data.score}/${state.innings1Data.wickets})</h2>${generateScorecardHTML(state.innings1Data.batters, state.innings1Data.bowlers, state.innings1Data.extras)}<hr><h2>2nd Innings: ${state.teamB} (${state.score}/${state.wickets})</h2>${generateScorecardHTML(state.batters, state.bowlers, state.extras)}`;
+        document.getElementById('final-content').innerHTML = h;
+        document.getElementById('scorecard-view').style.display = 'none'; document.getElementById('final-stats-view').style.display = 'block';
+    }
+
+    function startSecondInnings() {
+        state.innings1Data = { batters: {...state.batters}, bowlers: {...state.bowlers}, extras: state.extras, score: state.score, wickets: state.wickets };
+        document.getElementById('scorecard-view').style.display = 'none'; document.getElementById('game-screen').classList.add('hidden');
+        document.getElementById('setup-screen').classList.remove('hidden'); document.getElementById('setup-title').innerText = "2nd Innings Setup";
+        document.getElementById('team-names-input').classList.add('hidden'); document.getElementById('start-btn').innerText = "START 2nd INNINGS";
+        document.getElementById('target-display').classList.remove('hidden'); document.getElementById('target-display').innerText = `TARGET: ${state.firstInningScore + 1}`;
+        state.inning = 2; state.score = 0; state.wickets = 0; state.balls = 0; state.extras = 0; state.batters = {}; state.bowlers = {}; state.overHistory = []; state.isLastMan = false; state.lastOverAlerted = 0;
+        document.getElementById('p1').value = ""; document.getElementById('p2').value = ""; document.getElementById('b1').value = "";
+    }
+
+    function generateScorecardHTML(batters, bowlers, extras) {
+        let h = `<table><thead><tr><th>Batter</th><th>R</th><th>B</th><th>SR</th><th>4/6</th></tr></thead><tbody>`;
+        h += Object.entries(batters).map(([n, d]) => `<tr><td>${n} ${d.out?'':'*'}</td><td>${d.r}</td><td>${d.b}</td><td>${d.b?((d.r/d.b)*100).toFixed(1):0}</td><td>${d.f4}/${d.f6}</td></tr>`).join('');
+        h += `</tbody></table><table><thead><tr><th>Bowler</th><th>O</th><th>R</th><th>W</th><th>Eco</th></tr></thead><tbody>`;
+        h += Object.entries(bowlers).map(([n, d]) => `<tr><td>${n}</td><td>${Math.floor(d.b/6)}.${d.b%6}</td><td>${d.r}</td><td>${d.w}</td><td>${(d.b>0?(d.r/(d.b/6)).toFixed(2):0)}</td></tr>`).join('');
+        return h + `</tbody></table><div style="font-weight:bold">Extras: ${extras}</div>`;
     }
 
     function showScorecard() {
-        const modal = document.getElementById('scorecard-view');
-        const content = document.getElementById('scorecard-content');
-        const currentInningsTitle = state.inning === 1 ? state.teamA : state.teamB;
-        
-        content.innerHTML = generateScorecardHTML(state.batters, state.bowlers, state.extras, currentInningsTitle);
-        
+        document.getElementById('scorecard-content').innerHTML = generateScorecardHTML(state.batters, state.bowlers, state.extras);
         if(state.inning === 1) {
             state.firstInningScore = state.score;
             document.getElementById('target-summary').innerText = `Target: ${state.score + 1}`;
             document.getElementById('next-inning-btn').classList.remove('hidden');
             document.getElementById('view-final-btn').classList.add('hidden');
         } else {
-            document.getElementById('target-summary').innerText = "Innings Complete";
+            document.getElementById('target-summary').innerText = "Match Complete";
             document.getElementById('next-inning-btn').classList.add('hidden');
             document.getElementById('view-final-btn').classList.remove('hidden');
         }
-        modal.style.display = 'block';
+        document.getElementById('scorecard-view').style.display = 'block';
     }
 
-    function closeScorecard() {
-        document.getElementById('scorecard-view').style.display = 'none';
-    }
-
-    function startSecondInnings() {
-        state.innings1Data = { 
-            batters: JSON.parse(JSON.stringify(state.batters)), 
-            bowlers: JSON.parse(JSON.stringify(state.bowlers)), 
-            extras: state.extras, 
-            score: state.score 
-        };
-        
-        document.getElementById('scorecard-view').style.display = 'none';
-        document.getElementById('game-screen').classList.add('hidden');
-        document.getElementById('setup-screen').classList.remove('hidden');
-        document.getElementById('setup-title').innerText = "2nd Innings Setup";
-        document.getElementById('team-names-input').classList.add('hidden');
-        document.getElementById('start-btn').innerText = "START 2nd INNINGS";
-        
-        document.getElementById('target-display').classList.remove('hidden');
-        document.getElementById('target-display').innerText = `TARGET: ${state.firstInningScore + 1}`;
-        
-        state.inning = 2; state.score = 0; state.wickets = 0; state.balls = 0; 
-        state.extras = 0; state.batters = {}; state.bowlers = {}; state.overHistory = [];
-        state.isLastMan = false;
-        state.lastOverAlerted = 0; // Reset for new innings
-        document.getElementById('p1').value = ""; document.getElementById('p2').value = ""; document.getElementById('b1').value = "";
-    }
-
-    function showFinalStats() {
-        const view = document.getElementById('final-stats-view');
-        const content = document.getElementById('final-content');
-        const winner = state.score > state.firstInningScore ? state.teamB : (state.score === state.firstInningScore ? "Match Tied" : state.teamA);
-        document.getElementById('match-winner').innerText = winner === "Match Tied" ? winner : winner + " WON!";
-        
-        let html = `<h2>1st Innings: ${state.teamA} (${state.innings1Data.score} runs)</h2>`;
-        html += generateScorecardHTML(state.innings1Data.batters, state.innings1Data.bowlers, state.innings1Data.extras, state.teamA);
-        html += `<hr><h2>2nd Innings: ${state.teamB} (${state.score} runs)</h2>`;
-        html += generateScorecardHTML(state.batters, state.bowlers, state.extras, state.teamB);
-        
-        content.innerHTML = html;
-        document.getElementById('scorecard-view').style.display = 'none';
-        view.style.display = 'block';
-    }
-
-    function undo() { 
-        if(history.length > 0) { 
-            state = history.pop(); 
-            toggleControls(false);
-            updateUI(); 
-        } 
-    }
+    function rotateStrike() { if(!state.isLastMan) { let temp = state.strikerName; state.strikerName = state.nonStrikerName; state.nonStrikerName = temp; } }
+    function save() { history.push(JSON.parse(JSON.stringify(state))); }
+    function undo() { if(history.length > 0) { state = history.pop(); toggleControls(false); updateUI(); } }
+    function closeScorecard() { document.getElementById('scorecard-view').style.display = 'none'; }
 </script>
 </body>
 </html>
